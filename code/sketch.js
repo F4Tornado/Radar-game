@@ -41,25 +41,31 @@ function drawLoop() {
       let terraini = terrainpos[1] * terrainHeight + terrainpos[0];
       let brightness = heightmap[terraini];
 
-      if (brightness < 50) { // Oceans
-        pixels[i] = 0;
-        pixels[i + 1] = map(brightness, 0, 50, 64, 128);
-        pixels[i + 2] = map(brightness, 0, 50, 128, 255);
-      } else if (brightness < 60) { // Beaches
+      if (brightness < 0.05) { // Oceans
+        pixels[i] = map(brightness, 0, 0.05, 32, 64);
+        pixels[i + 1] = map(brightness, 0, 0.05, 64, 192);
+        pixels[i + 2] = map(brightness, 0, 0.05, 128, 255);
+      } else if (brightness < 0.1) { // Beaches
         pixels[i] = 255;
         pixels[i + 1] = 255;
         pixels[i + 2] = 128;
-      } else if (brightness < 140) { // Plains
-        pixels[i] = map(brightness, 60, 140, 64, 128);
-        pixels[i + 1] = map(brightness, 60, 140, 128, 255);
-        pixels[i + 2] = map(brightness, 60, 140, 64, 128);
-      } else { // Mountain tops
-        pixels[i] = brightness;
-        pixels[i + 1] = brightness;
-        pixels[i + 2] = brightness;
+      } else if (brightness < 1) { // Plains & mountains
+        pixels[i] = map(brightness, 0.1, 1, 0, 255);
+        pixels[i + 1] = map(brightness, 0.1, 1, 128, 255);
+        pixels[i + 2] = map(brightness, 0.1, 1, 0, 255);
       }
     }
     draw.putImageData(imageData, 0, 0);
+  } else {
+    // loading screen
+    let time = Date.now();
+    for (let i = 0; i < 10; i++) {
+      draw.strokeStyle = `hsl(${map(i, 0, 10, 0, 360)}, 100%, 50%)`;
+      draw.lineWidth = 16;
+      draw.beginPath();
+      draw.arc(c.width / 2, c.height / 2, 64 + i * 24, (time / (100 * (i + 1))) % (Math.PI * 2), (time / (100 * (i + 1)) + Math.PI / 2) % (Math.PI * 2));
+      draw.stroke();
+    }
   }
 }
 
