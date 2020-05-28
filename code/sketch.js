@@ -2,12 +2,33 @@
 const c = document.getElementById("c");
 const draw = c.getContext("2d");
 
+const backgroundC = document.getElementById("background");
+const background = backgroundC.getContext("2d");
+
 c.width = window.innerWidth;
 c.height = window.innerHeight;
 
+let drawn = false;
+
+const player = new Player(100, 100, 0.5);
+
+const enemies = [];
+
 // Get the web worker to generate the heightmap
-let terrainWidth = c.width * 2;
-let terrainHeight = c.height * 2
+let terrainWidth = c.width * 1;
+let terrainHeight = c.width * 1;
+
+for (let i = 0; i < 10; i++) {
+  enemies.push(new Enemy(Math.random() * terrainWidth, Math.random() * terrainHeight, Math.random() * Math.PI * 2))
+}
+
+backgroundC.width = terrainWidth;
+backgroundC.height = terrainHeight;
+
+const camera = {
+  x: 0,
+  y: 0,
+}
 
 let heightmap;
 
@@ -16,30 +37,18 @@ let terrainGenerater = new Worker("terrain.js");
 terrainGenerater.postMessage([terrainWidth, terrainHeight]);
 
 terrainGenerater.onmessage = (msg) => {
-  console.log(msg.data);
+  // console.log(msg.data);
   if (msg.data[0] == "heightmap") {
     console.log("Generated");
     heightmap = msg.data[1];
-  }
-}
 
-function drawLoop() {
-  setTimeout(drawLoop, 1000 / 60);
-
-  // Draw the background
-  draw.fillStyle = "#000";
-  draw.fillRect(0, 0, c.width, c.height);
-
-  if (heightmap) {
     // Create the image data
-    let imageData = draw.getImageData(0, 0, c.width, c.height);
+    let imageData = background.getImageData(0, 0, backgroundC.width, backgroundC.height);
     let pixels = imageData.data;
     // Draw each pixel
     for (let i = 0; i < pixels.length; i += 4) {
       // get the height to draw on screen using the heightmap
-      let terrainpos = [(i / 4) % c.width, Math.floor((i / 4) / c.height)];
-      let terraini = terrainpos[1] * terrainHeight + terrainpos[0];
-      let brightness = heightmap[terraini];
+      let brightness = heightmap[i / 4];
 
       if (brightness < 0.05) { // Oceans
         pixels[i] = map(brightness, 0, 0.05, 32, 64);
@@ -54,8 +63,39 @@ function drawLoop() {
         pixels[i + 1] = map(brightness, 0.1, 1, 128, 255);
         pixels[i + 2] = map(brightness, 0.1, 1, 0, 255);
       }
+
+      pixels[i + 3] = 255;
     }
-    draw.putImageData(imageData, 0, 0);
+
+    // Draw the image data onto a blank canvas
+    background.putImageData(imageData, 0, 0);
+
+    drawn = true;
+  }
+}
+
+function drawLoop() {
+  setTimeout(drawLoop, 1000 / 60);
+
+  let t1 = performance.now();
+
+  // Draw the background
+  draw.fillStyle = "#000";
+  draw.fillRect(0, 0, c.width, c.height);
+
+  if (drawn) {
+    // Make the camera follow the player without showing areas outside the map
+    camera.x = player.x < c.width / 2 ? 0 : player.x > terrainWidth - c.width / 2 ? terrainWidth - c.width : player.x - c.width / 2;
+    camera.y = player.y < c.height / 2 ? 0 : player.y > terrainHeight - c.height / 2 ? terrainHeight - c.height : player.y - c.height / 2;
+
+    // Draw the visible area of the hidden canvas
+    draw.drawImage(backgroundC, camera.x, camera.y, c.width, c.height, 0, 0, c.width, c.height);
+
+    player.show();
+
+    for (let i = 0; i < enemies.length; i++) {
+      enemies[i].show();
+    }
   } else {
     // loading screen
     let time = Date.now();
@@ -67,6 +107,8 @@ function drawLoop() {
       draw.stroke();
     }
   }
+
+  // console.log(performance.now() - t1, 1000 / 60);
 }
 
 window.onresize = () => {
