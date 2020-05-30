@@ -20,6 +20,7 @@ class Player {
     this.vy = 0;
     this.a = a;
     this.r = 0;
+    this.radarRotation = 0;
 
     this.acceleration = 1;
   }
@@ -43,11 +44,24 @@ class Player {
     let x = Math.cos(this.r);
     let y = Math.sin(this.r);
 
+    // Draw the player
     draw.save();
     draw.translate(this.x - camera.x, this.y - camera.y);
     draw.rotate(this.r + Math.PI / 2);
     draw.drawImage(assets.player, -c.width / 64, -c.width / 64, c.width / 32, c.width / 32);
     draw.restore();
+
+    // Spawn radar beams
+    // for (let i = 0; i < 2; i++) {
+    terrainGenerater.postMessage(["radar", this.x, this.y, this.radarRotation, 1000, this.a]);
+    this.radarRotation += 0.05;
+    // }
+    // Draw the line that shows where the radar is drawing
+    draw.strokeStyle = `rgba(0, 255, 0, 0.5)`;
+    draw.beginPath();
+    draw.moveTo(this.x - camera.x, this.y - camera.y);
+    draw.lineTo(this.x - camera.x + Math.cos(this.radarRotation) * 1000, this.y - camera.y + Math.sin(this.radarRotation) * 1000);
+    draw.stroke();
 
     // Add the acceleration to the velocity
     this.vx += x * this.acceleration;

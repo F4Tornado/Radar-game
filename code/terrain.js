@@ -8,11 +8,16 @@ const hillsMap = [];
 const heightmap = [];
 
 onmessage = (msg) => {
-  width = msg.data[0];
-  height = msg.data[1];
+  // console.log(msg.data);
+  if (msg.data[0] == "terrain") {
+    width = msg.data[1];
+    height = msg.data[2];
 
-  // Start the generation when given the width & height
-  generateTerrain();
+    // Start the generation when given the width & height
+    generateTerrain();
+  } else if (msg.data[0] == "radar") {
+    self.postMessage(["radarData", msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5], radarRay(msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5])]);
+  }
 }
 
 function map(v, min1, max1, min2, max2) {
@@ -51,7 +56,36 @@ function generateTerrain() {
   }
 
   console.log("done");
+
+
   self.postMessage(["heightmap", heightmap]);
+}
+
+function radarRay(originalX, originalY, r, maxDist, altitude) {
+  let x = originalX;
+  let y = originalY;
+  // Calculate the sin & cos of r in advance, so it doesn't have to be done every step
+  let cosr = Math.cos(r);
+  let sinr = Math.sin(r);
+  let power = 1;
+  let data = [];
+
+  // Step the radar beam and add to the list of points to send back
+  while (dist(x, y, originalX, originalY) < maxDist && power > 0.01 && x >= 0 && y >= 0 && x <= width && y <= height) {
+    // Ignore the point if it's below the plane's altitude
+    if (heightmap[Math.round(y * height + x)] > altitude) {
+      let terrainRadar = map(heightmap[Math.round(y) * width + Math.round(x)], altitude, 1, 0, 0.1);
+      // Reduce the power; allows radar signals to be blocked by mountains
+      power -= terrainRadar * 2;
+      data.push([terrainRadar, x, y]);
+    }
+
+    // Step the radar beam along
+    x += cosr * 1;
+    y += sinr * 1;
+  }
+
+  return data;
 }
 
 // function hills(number) {

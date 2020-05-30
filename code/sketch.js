@@ -2,15 +2,27 @@
 const c = document.getElementById("c");
 const draw = c.getContext("2d");
 
+const radarC = document.getElementById("radar");
+const radar = radarC.getContext("2d");
+
 const backgroundC = document.getElementById("background");
 const background = backgroundC.getContext("2d");
 
 c.width = window.innerWidth;
 c.height = window.innerHeight;
 
+radarC.width = window.innerWidth;
+radarC.height = window.innerHeight;
+
+radar.fillStyle = "rgba(0, 0, 0, 0.5)";
+radar.fillRect(0, 0, c.width, c.height);
+
+let radarData = radar.getImageData(0, 0, c.width, c.height);
+let radarPixels = radarData.data;
+
 let drawn = false;
 
-const player = new Player(100, 100, 0.5);
+const player = new Player(100, 100, 0.2);
 
 const enemies = [];
 
@@ -34,7 +46,7 @@ let heightmap;
 
 let terrainGenerater = new Worker("terrain.js");
 
-terrainGenerater.postMessage([terrainWidth, terrainHeight]);
+terrainGenerater.postMessage(["terrain", terrainWidth, terrainHeight]);
 
 terrainGenerater.onmessage = (msg) => {
   // console.log(msg.data);
@@ -71,6 +83,23 @@ terrainGenerater.onmessage = (msg) => {
     background.putImageData(imageData, 0, 0);
 
     drawn = true;
+  } else if (msg.data[0] == "radarData") {
+    // Loop through ever point sent back in the radar data
+    for (let i = 0; i < msg.data[6].length; i++) {
+      // Calculate the x and y of the current point to draw
+      let x = msg.data[6][i][1] - camera.x;
+      let y = msg.data[6][i][2] - camera.y;
+
+      if (x < c.width && x > 0 && y < c.height && y > 0) {
+        // Turn the x & y to a pixel index
+        let j = ((Math.round(y) * c.width) + Math.round(x)) * 4;
+
+        // Draw the pixel
+        radarPixels[j] = 0;
+        radarPixels[j + 1] = map(msg.data[6][i][0], 0, 0.1, 0, 255);
+        radarPixels[j + 2] = 0;
+      }
+    }
   }
 }
 
@@ -91,7 +120,11 @@ function drawLoop() {
     // Draw the visible area of the hidden canvas
     draw.drawImage(backgroundC, camera.x, camera.y, c.width, c.height, 0, 0, c.width, c.height);
 
+    // Draw and calculate the player
     player.show();
+
+    // Draw the current radar to the screen
+    radar.putImageData(radarData, 0, 0);
 
     for (let i = 0; i < enemies.length; i++) {
       enemies[i].show();
@@ -111,9 +144,17 @@ function drawLoop() {
   // console.log(performance.now() - t1, 1000 / 60);
 }
 
+// Resize the screen if neccesary
 window.onresize = () => {
   c.width = window.innerWidth;
   c.height = window.innerHeight;
+  radarC.width = window.innerWidth;
+  radarC.height = window.innerHeight;
+
+  radar.fillStyle = "rgba(0, 0, 0, 0.5)";
+  radar.fillRect(0, 0, c.width, c.height);
+  radarData = radar.getImageData(0, 0, c.width, c.height);
+  radarPixels = radarData.data;
 }
 
 function map(v, min1, max1, min2, max2) {
