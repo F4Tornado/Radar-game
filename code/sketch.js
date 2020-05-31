@@ -22,16 +22,17 @@ let radarPixels = radarData.data;
 
 let drawn = false;
 
-const player = new Player(100, 100, 0.2);
+const radarObjects = [];
+let id = 0;
 
-const enemies = [];
+const player = new Player(100, 100, 0.2);
 
 // Get the web worker to generate the heightmap
 let terrainWidth = c.width * 1;
 let terrainHeight = c.width * 1;
 
 for (let i = 0; i < 10; i++) {
-  enemies.push(new Enemy(Math.random() * terrainWidth, Math.random() * terrainHeight, Math.random() * Math.PI * 2))
+  radarObjects.push(new Enemy(Math.random() * terrainWidth, Math.random() * terrainHeight, Math.random() * Math.PI * 2))
 }
 
 backgroundC.width = terrainWidth;
@@ -47,6 +48,9 @@ let heightmap;
 let terrainGenerater = new Worker("terrain.js");
 
 terrainGenerater.postMessage(["terrain", terrainWidth, terrainHeight]);
+
+radarObjects.push(new Missile(200, 200, 100, 100));
+
 
 terrainGenerater.onmessage = (msg) => {
   // console.log(msg.data);
@@ -84,20 +88,39 @@ terrainGenerater.onmessage = (msg) => {
 
     drawn = true;
   } else if (msg.data[0] == "radarData") {
-    // Loop through ever point sent back in the radar data
-    for (let i = 0; i < msg.data[6].length; i++) {
-      // Calculate the x and y of the current point to draw
-      let x = msg.data[6][i][1] - camera.x;
-      let y = msg.data[6][i][2] - camera.y;
+    if (msg.data[7] == "radarScreen") {
+      if (msg.data[3] % (Math.PI * 2) < 0.1) {
+        radar.clearRect(0, 0, c.width, c.height);
+        radar.fillStyle = "rgba(0, 0, 0, 0.5)";
+        radar.fillRect(0, 0, c.width, c.height);
+        radarData = radar.getImageData(0, 0, c.width, c.height);
+        radarPixels = radarData.data;
+      }
 
-      if (x < c.width && x > 0 && y < c.height && y > 0) {
-        // Turn the x & y to a pixel index
-        let j = ((Math.round(y) * c.width) + Math.round(x)) * 4;
+      // Loop through ever point sent back in the radar data
+      for (let i = 0; i < msg.data[6].length; i++) {
+        // Calculate the x and y of the current point to draw
+        let x = msg.data[6][i][1] - camera.x;
+        let y = msg.data[6][i][2] - camera.y;
 
-        // Draw the pixel
-        radarPixels[j] = 0;
-        radarPixels[j + 1] = map(msg.data[6][i][0], 0, 0.1, 0, 255);
-        radarPixels[j + 2] = 0;
+        if (x < c.width && x > 0 && y < c.height && y > 0) {
+          // Turn the x & y to a pixel index
+          let j = ((Math.round(y) * c.width) + Math.round(x)) * 4;
+
+          // Draw the pixel
+          radarPixels[j] = 0;
+          radarPixels[j + 1] = map(msg.data[6][i][0], 0, 0.1, 0, 255);
+          radarPixels[j + 2] = 0;
+        }
+      }
+      terrainGenerater.postMessage(["radar", player.x, player.y, radarRotation, 1000, player.a, radarObjects, "radarScreen"]);
+      radarRotation += 0.04;
+    } else {
+      // Send any radar data not to be drawn to the screen to the radar object with the id in the name
+      for (let i = 0; i < radarObjects.length; i++) {
+        if (radarObjects[i].id == msg.data[7]) {
+          radarObjects[i].getRadarValue(msg.data[6]);
+        }
       }
     }
   }
@@ -126,8 +149,8 @@ function drawLoop() {
     // Draw the current radar to the screen
     radar.putImageData(radarData, 0, 0);
 
-    for (let i = 0; i < enemies.length; i++) {
-      enemies[i].show();
+    for (let i = 0; i < radarObjects.length; i++) {
+      radarObjects[i].show();
     }
   } else {
     // loading screen
@@ -160,5 +183,9 @@ window.onresize = () => {
 function map(v, min1, max1, min2, max2) {
   return ((v - min1) / (max1 - min1)) * (max2 - min2) + min2;
 }
+
+let radarRotation = 0;
+terrainGenerater.postMessage(["radar", player.x, player.y, radarRotation, 1000, player.a, radarObjects, "radarScreen"]);
+radarRotation += 0.04;
 
 drawLoop();

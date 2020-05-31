@@ -12,15 +12,23 @@ function dist(x1, y1, x2, y2) {
   return Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
 }
 
-class Player {
-  constructor(x, y, a) {
+class RadarObject {
+  constructor(x, y, radarCrossSection) {
     this.x = x;
     this.y = y;
+    this.radarCrossSection = radarCrossSection;
+    this.id = id;
+    id++;
+  }
+}
+
+class Player extends RadarObject {
+  constructor(x, y, a) {
+    super(x, y, 1);
     this.vx = 0;
     this.vy = 0;
     this.a = a;
     this.r = 0;
-    this.radarRotation = 0;
 
     this.acceleration = 1;
   }
@@ -53,8 +61,6 @@ class Player {
 
     // Spawn radar beams
     // for (let i = 0; i < 2; i++) {
-    terrainGenerater.postMessage(["radar", this.x, this.y, this.radarRotation, 1000, this.a]);
-    this.radarRotation += 0.05;
     // }
     // Draw the line that shows where the radar is drawing
     draw.strokeStyle = `rgba(0, 255, 0, 0.5)`;
@@ -77,14 +83,6 @@ class Player {
   }
 }
 
-class RadarObject {
-  constructor(x, y, radarCrossSection) {
-    this.x = x;
-    this.y = y;
-    this.radarCrossSection = radarCrossSection;
-  }
-}
-
 class Enemy extends RadarObject {
   constructor(x, y, r) {
     super(x, y, 1);
@@ -100,8 +98,8 @@ class Enemy extends RadarObject {
     let x = Math.cos(this.r);
     let y = Math.sin(this.r);
 
-    let point1 = [x * 32 + this.x - camera.x, y * 32 + this.y - camera.y];
-    let point2 = [Math.cos(this.r + Math.PI) * 32 + this.x - camera.x, Math.sin(this.r + Math.PI) * 32 + this.y - camera.y];
+    // let point1 = [x * 32 + this.x - camera.x, y * 32 + this.y - camera.y];
+    // let point2 = [Math.cos(this.r + Math.PI) * 32 + this.x - camera.x, Math.sin(this.r + Math.PI) * 32 + this.y - camera.y];
 
     this.r = this.r.mod(Math.PI * 2)
 
@@ -155,12 +153,12 @@ class Enemy extends RadarObject {
 
     // Draw the enemy
 
-    draw.strokeStyle = "#000";
-    draw.lineWidth = 4;
-    draw.beginPath();
-    draw.moveTo(point1[0], point1[1]);
-    draw.lineTo(point2[0], point2[1]);
-    draw.stroke();
+    // draw.strokeStyle = "#000";
+    // draw.lineWidth = 4;
+    // draw.beginPath();
+    // draw.moveTo(point1[0], point1[1]);
+    // draw.lineTo(point2[0], point2[1]);
+    // draw.stroke();
 
     // Add the acceleration to the velocity
     this.vx += x * this.acceleration;
@@ -173,6 +171,94 @@ class Enemy extends RadarObject {
     // Apply drag
     this.vx *= 0.9;
     this.vy *= 0.9;
+  }
+}
+
+class Missile extends RadarObject {
+  constructor(x, y, tx, ty) {
+    super(x, y, 0.5);
+    this.tx = tx;
+    this.ty = ty;
+    this.r = Math.atan2(y - ty, x - tx) + Math.PI;
+    this.angleToTurn = this.r;
+    this.radarDatas = [];
+
+    for (let i = 0; i < 3; i++) {
+      terrainGenerater.postMessage(["radar", this.x, this.y, this.r - (i - 1) / 5, 1000, 0.2, radarObjects.concat([player]), this.id]);
+    }
+  }
+
+  show() {
+    let x = Math.cos(this.r);
+    let y = Math.sin(this.r);
+
+    if (this.r - this.angleToTurn <= 0) {
+      if (this.r - this.angleToTurn <= -Math.PI) {
+        this.r -= 0.01;
+      } else {
+        this.r += 0.01;
+      }
+    } else {
+      if (this.r - this.angleToTurn <= Math.PI) {
+        this.r -= 0.01;
+      } else {
+        this.r += 0.01;
+      }
+    }
+
+    this.x += x * 5;
+    this.y += y * 5;
+
+    let point1 = [x * 32 + this.x - camera.x, y * 32 + this.y - camera.y];
+    let point2 = [Math.cos(this.r + Math.PI) * 32 + this.x - camera.x, Math.sin(this.r + Math.PI) * 32 + this.y - camera.y];
+
+    draw.strokeStyle = "#000";
+    draw.lineWidth = 4;
+    draw.beginPath();
+    draw.moveTo(point1[0], point1[1]);
+    draw.lineTo(point2[0], point2[1]);
+    draw.stroke();
+
+  }
+
+  targetUpdate() {
+    // Squish the 3 radar beams into one data set
+    let datas = this.radarDatas[0].concat(this.radarDatas[1]).concat(this.radarDatas[2]);
+
+    // Find the biggest radar value in the radar value list within a square around the target position
+    let maxValue = [-Infinity, "no", "no"];
+    for (let i = 0; i < datas.length; i++) {
+      if (datas[i][1] - this.tx < terrainWidth / 25 && datas[i][1] - this.tx > -terrainWidth / 25 && datas[i][2] - this.ty < terrainHeight / 25 && datas[i][2] - this.ty > -terrainHeight / 25) {
+        if (datas[i][0] > maxValue[0]) {
+          maxValue = datas[i];
+        }
+      }
+    }
+
+    // If the maxValue was changed from it's default, set the target position to the max value.
+    if (maxValue[1] !== "no") {
+      this.tx = maxValue[1];
+      this.ty = maxValue[2];
+    }
+
+    // Set the target angle to the angle to the target position
+    this.angleToTurn = Math.atan2(this.y - this.ty, this.x - this.tx) + Math.PI;
+
+    // Reset the radar data list
+    this.radarDatas = [];
+
+    // Request more radar data
+    for (let i = 0; i < 3; i++) {
+      terrainGenerater.postMessage(["radar", this.x, this.y, this.r - (i - 1) / 5, 1000, 0.2, radarObjects.concat([player]), this.id]);
+    }
+  }
+
+  // When the missile gets radar data back, add it to the list and call the above funtion if the list is 3 long
+  getRadarValue(data) {
+    this.radarDatas.push(data);
+    if (this.radarDatas.length == 3) {
+      this.targetUpdate();
+    }
   }
 }
 
