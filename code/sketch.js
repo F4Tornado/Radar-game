@@ -49,7 +49,7 @@ let terrainGenerater = new Worker("terrain.js");
 
 terrainGenerater.postMessage(["terrain", terrainWidth, terrainHeight]);
 
-radarObjects.push(new Missile(200, 200, 100, 100));
+// radarObjects.push(new Missile(200, 200, 100, 100));
 
 
 terrainGenerater.onmessage = (msg) => {
@@ -114,7 +114,7 @@ terrainGenerater.onmessage = (msg) => {
         }
       }
       terrainGenerater.postMessage(["radar", player.x, player.y, radarRotation, 1000, player.a, radarObjects, "radarScreen"]);
-      radarRotation += 0.04;
+      radarRotation += 0.02;
     } else {
       // Send any radar data not to be drawn to the screen to the radar object with the id in the name
       for (let i = 0; i < radarObjects.length; i++) {
@@ -146,11 +146,26 @@ function drawLoop() {
     // Draw and calculate the player
     player.show();
 
+    // Draw a black circle in the corner
+    draw.fillStyle = "#000";
+    draw.beginPath();
+    draw.arc(42, 42, 24, 0, Math.PI * 2);
+    draw.fill();
+
+    // Draw an arc around the circle representing how long until you can dispense more chaff
+    draw.lineWidth = 4;
+    draw.strokeStyle = "#f00";
+    draw.beginPath();
+    draw.arc(42, 42, 24, 0, (Math.PI * 2) * ((performance.now() - player.chaffTime) / 30000));
+    draw.stroke();
+
     // Draw the current radar to the screen
     radar.putImageData(radarData, 0, 0);
 
     for (let i = 0; i < radarObjects.length; i++) {
-      radarObjects[i].show();
+      if (radarObjects[i].show()) {
+        radarObjects.splice(i, 1);
+      }
     }
   } else {
     // loading screen
@@ -165,6 +180,16 @@ function drawLoop() {
   }
 
   // console.log(performance.now() - t1, 1000 / 60);
+}
+
+function explode(x, y, power) {
+  let objects = radarObjects.concat([player]);
+  for (let i = objects.length - 1; i >= 0; i--) {
+    let distance = dist(objects[i].x, objects[i].y, x, y) / terrainWidth;
+    if (distance < 0.1) {
+      objects[i].damage(Math.min((power / 25) / distance, power));
+    }
+  }
 }
 
 // Resize the screen if neccesary

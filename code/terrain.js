@@ -16,7 +16,7 @@ onmessage = (msg) => {
     // Start the generation when given the width & height
     generateTerrain();
   } else if (msg.data[0] == "radar") {
-    self.postMessage(["radarData", msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5], radarRay(msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5], msg.data[6], msg.data[7]), msg.data[7]]);
+    self.postMessage(["radarData", msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5], radarRay(msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5], msg.data[6], msg.data[7], msg.data[8], msg.data[9], msg.data[10], msg.data[11]), msg.data[7]]);
   }
 }
 
@@ -61,7 +61,7 @@ function generateTerrain() {
   self.postMessage(["heightmap", heightmap]);
 }
 
-function radarRay(originalX, originalY, r, maxDist, altitude, radarObjects, id) {
+function radarRay(originalX, originalY, r, maxDist, altitude, radarObjects, id, boxx, boxy, boxw, boxh) {
   let x = originalX;
   let y = originalY;
   // Calculate the sin & cos of r in advance, so it doesn't have to be done every step
@@ -70,6 +70,8 @@ function radarRay(originalX, originalY, r, maxDist, altitude, radarObjects, id) 
   let power = 1;
   let data = [];
 
+  let ifCheckingBox = boxx ? true : false;
+
   // Step the radar beam and add to the list of points to send back
   while (dist(x, y, originalX, originalY) < maxDist && power > 0.01 && x >= 0 && y >= 0 && x <= width && y <= height) {
     // Ignore the point if it's below the plane's altitude
@@ -77,21 +79,25 @@ function radarRay(originalX, originalY, r, maxDist, altitude, radarObjects, id) 
     if (heightmap[Math.round(y) * height + Math.round(x)] > altitude) {
       radar += map(heightmap[Math.round(y) * width + Math.round(x)], altitude, 1, 0, 0.1);
       // Reduce the power; allows radar signals to be blocked by mountains
-      power -= radar / 2;
+      power -= radar;
     }
 
-    for (let i = 0; i < radarObjects.length; i++) {
-      if (radarObjects[i] !== id) {
-        // Add to the radar value for every radar object so that it's proportional to the distance and power left
-        radar += power * Math.min((radarObjects[i].radarCrossSection / 10) / (dist(radarObjects[i].x, radarObjects[i].y, x, y) / 5), 0.1);
+    // For speed, have an option to only draw the points in a box
+    if (!ifCheckingBox || (x > boxx && y > boxy && x < boxx + boxw && y < boxy + boxh)) {
+      for (let i = 0; i < radarObjects.length; i++) {
+        let distance = dist(radarObjects[i].x, radarObjects[i].y, x, y);
+        if (radarObjects[i] !== id && distance < width / 40) {
+          // Add to the radar value for every radar object so that it's proportional to the distance and power left
+          radar += power * Math.min((radarObjects[i].radarCrossSection / 10) / (distance / 5), 0.1);
+        }
       }
     }
 
     data.push([radar, x, y]);
 
     // Step the radar beam along
-    x += cosr * 1;
-    y += sinr * 1;
+    x += cosr * 3;
+    y += sinr * 3;
   }
 
   return data;

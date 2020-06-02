@@ -13,22 +13,33 @@ function dist(x1, y1, x2, y2) {
 }
 
 class RadarObject {
-  constructor(x, y, radarCrossSection) {
+  constructor(x, y, radarCrossSection, health) {
     this.x = x;
     this.y = y;
     this.radarCrossSection = radarCrossSection;
     this.id = id;
+    this.health = health;
+    this.toRemove = false;
     id++;
+  }
+
+  damage(v) {
+    this.health -= v;
+    if (this.health <= 0) {
+      this.toRemove = true;
+    }
   }
 }
 
 class Player extends RadarObject {
   constructor(x, y, a) {
-    super(x, y, 1);
+    super(x, y, 1, 100);
     this.vx = 0;
     this.vy = 0;
     this.a = a;
     this.r = 0;
+
+    this.chaffTime = 0;
 
     this.acceleration = 1;
   }
@@ -48,6 +59,14 @@ class Player extends RadarObject {
       this.acceleration = terrainWidth / 16000;
     }
 
+    // Dispense 4 chaff if space is pressed and the timer runs out
+    if (keys[" "] && this.chaffTime < performance.now() - 30000) {
+      for (let i = 3; i >= 0; i--) {
+        radarObjects.push(new Chaff(this.x + Math.random() * terrainWidth / 50, this.y + Math.random() * terrainHeight / 50));
+      }
+      this.chaffTime = performance.now();
+    }
+
     // Calculate the x and y rotation components
     let x = Math.cos(this.r);
     let y = Math.sin(this.r);
@@ -64,9 +83,10 @@ class Player extends RadarObject {
     // }
     // Draw the line that shows where the radar is drawing
     draw.strokeStyle = `rgba(0, 255, 0, 0.5)`;
+    draw.lineWidth = 2;
     draw.beginPath();
     draw.moveTo(this.x - camera.x, this.y - camera.y);
-    draw.lineTo(this.x - camera.x + Math.cos(this.radarRotation) * 1000, this.y - camera.y + Math.sin(this.radarRotation) * 1000);
+    draw.lineTo(this.x - camera.x + Math.cos(radarRotation) * 1000, this.y - camera.y + Math.sin(radarRotation) * 1000);
     draw.stroke();
 
     // Add the acceleration to the velocity
@@ -80,12 +100,16 @@ class Player extends RadarObject {
     // Apply drag
     this.vx *= 0.9;
     this.vy *= 0.9;
+
+    if (this.toRemove) {
+      return "remove";
+    }
   }
 }
 
 class Enemy extends RadarObject {
   constructor(x, y, r) {
-    super(x, y, 1);
+    super(x, y, 1, 20);
     this.r = r;
     this.vx = 0;
     this.vy = 0;
@@ -171,20 +195,30 @@ class Enemy extends RadarObject {
     // Apply drag
     this.vx *= 0.9;
     this.vy *= 0.9;
+
+    if (this.toRemove) {
+      return "remove";
+    }
   }
 }
 
 class Missile extends RadarObject {
   constructor(x, y, tx, ty) {
-    super(x, y, 0.5);
+    super(x, y, 0.5, 10);
     this.tx = tx;
     this.ty = ty;
     this.r = Math.atan2(y - ty, x - tx) + Math.PI;
     this.angleToTurn = this.r;
     this.radarDatas = [];
 
+    let boxx = this.tx - terrainWidth / 25;
+    let boxy = this.ty - terrainHeight / 25;
+    let boxw = terrainWidth / 12.5;
+    let boxh = terrainHeight / 12.5;
+
+
     for (let i = 0; i < 3; i++) {
-      terrainGenerater.postMessage(["radar", this.x, this.y, this.r - (i - 1) / 5, 1000, 0.2, radarObjects.concat([player]), this.id]);
+      terrainGenerater.postMessage(["radar", this.x, this.y, this.r - (i - 1) / 5, 1000, 0.2, radarObjects.concat([player]), this.id, boxx, boxy, boxw, boxh]);
     }
   }
 
@@ -192,6 +226,7 @@ class Missile extends RadarObject {
     let x = Math.cos(this.r);
     let y = Math.sin(this.r);
 
+    // Turn towards the target angle
     if (this.r - this.angleToTurn <= 0) {
       if (this.r - this.angleToTurn <= -Math.PI) {
         this.r -= 0.01;
@@ -206,9 +241,11 @@ class Missile extends RadarObject {
       }
     }
 
+    // Move
     this.x += x * 5;
     this.y += y * 5;
 
+    // Temporary drawing code
     let point1 = [x * 32 + this.x - camera.x, y * 32 + this.y - camera.y];
     let point2 = [Math.cos(this.r + Math.PI) * 32 + this.x - camera.x, Math.sin(this.r + Math.PI) * 32 + this.y - camera.y];
 
@@ -219,6 +256,15 @@ class Missile extends RadarObject {
     draw.lineTo(point2[0], point2[1]);
     draw.stroke();
 
+    // Explode if close to the target
+    if (dist(this.x, this.y, this.tx, this.ty) < terrainWidth / 300) {
+      explode(this.x, this.y, 200);
+      return "remove";
+    }
+
+    if (this.toRemove) {
+      return "remove";
+    }
   }
 
   targetUpdate() {
@@ -227,8 +273,12 @@ class Missile extends RadarObject {
 
     // Find the biggest radar value in the radar value list within a square around the target position
     let maxValue = [-Infinity, "no", "no"];
+    let boxx = this.tx - terrainWidth / 25;
+    let boxy = this.ty - terrainHeight / 25;
+    let boxw = terrainWidth / 12.5;
+    let boxh = terrainHeight / 12.5;
     for (let i = 0; i < datas.length; i++) {
-      if (datas[i][1] - this.tx < terrainWidth / 25 && datas[i][1] - this.tx > -terrainWidth / 25 && datas[i][2] - this.ty < terrainHeight / 25 && datas[i][2] - this.ty > -terrainHeight / 25) {
+      if (datas[i][1] > boxx && datas[i][1] < boxx + boxw && datas[i][2] > boxy && datas[i][2] < boxy + boxh) {
         if (datas[i][0] > maxValue[0]) {
           maxValue = datas[i];
         }
@@ -249,7 +299,7 @@ class Missile extends RadarObject {
 
     // Request more radar data
     for (let i = 0; i < 3; i++) {
-      terrainGenerater.postMessage(["radar", this.x, this.y, this.r - (i - 1) / 5, 1000, 0.2, radarObjects.concat([player]), this.id]);
+      terrainGenerater.postMessage(["radar", this.x, this.y, this.r - (i - 1) / 5, 1000, 0.2, radarObjects.concat([player]), this.id, boxx, boxy, boxw, boxh]);
     }
   }
 
@@ -258,6 +308,21 @@ class Missile extends RadarObject {
     this.radarDatas.push(data);
     if (this.radarDatas.length == 3) {
       this.targetUpdate();
+    }
+  }
+}
+
+class Chaff extends RadarObject {
+  constructor(x, y) {
+    super(x, y, 1, 10);
+
+    this.startTime = performance.now();
+    this.time = 5000 + Math.random() * 10000;
+  }
+
+  show() {
+    if (this.toRemove || performance.now() - this.startTime > this.time) {
+      return "remove";
     }
   }
 }
