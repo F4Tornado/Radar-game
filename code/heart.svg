@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   inkscape:version="1.0 (4035a4fb49, 2020-05-01)"
+   sodipodi:docname="heart.svg"
+   id="svg1672"
+   version="1.1"
+   viewBox="0 0 200 200"
+   height="200mm"
+   width="200mm">
+  <defs
+     id="defs1666" />
+  <sodipodi:namedview
+     showguides="false"
+     inkscape:window-maximized="1"
+     inkscape:window-y="387"
+     inkscape:window-x="1912"
+     inkscape:window-height="1057"
+     inkscape:window-width="1920"
+     showgrid="false"
+     inkscape:document-rotation="0"
+     inkscape:current-layer="layer1"
+     inkscape:document-units="mm"
+     inkscape:cy="412.85784"
+     inkscape:cx="513.15197"
+     inkscape:zoom="1"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     borderopacity="1.0"
+     bordercolor="#666666"
+     pagecolor="#ffffff"
+     id="base">
+    <inkscape:grid
+       id="grid2235"
+       type="xygrid" />
+  </sodipodi:namedview>
+  <metadata
+     id="metadata1669">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     id="layer1"
+     inkscape:groupmode="layer"
+     inkscape:label="Layer 1">
+    <path
+       d="M 69.932377,25.813041 C 60.089636,25.904168 52.203571,31.170808 48.560954,34.812284 13.565195,69.797087 100.55411,176.02049 100.55411,176.02049 V 48.718861 c 0,0 -8.04462,-17.30059 -21.943914,-21.616136 -3.012548,-0.935356 -5.92185,-1.3152 -8.677819,-1.289684 z m 61.449063,0 c -2.75597,-0.02551 -5.66527,0.354328 -8.67782,1.289684 -13.89929,4.315546 -21.94392,21.616136 -21.94392,21.616136 V 176.02049 c 0,0 86.98891,-106.223403 51.99316,-141.208206 -3.64263,-3.641476 -11.52869,-8.908116 -21.37142,-8.999243 z"
+       style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.236245;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       id="path2241" />
+  </g>
+</svg>

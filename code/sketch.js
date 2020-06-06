@@ -25,7 +25,15 @@ let drawn = false;
 const radarObjects = [];
 let id = 0;
 
-const player = new Player(100, 100, 0.2);
+let level = 1;
+
+const particles = [];
+
+let player = new Player(100, 100, 0.2);
+
+let airBase;
+
+let menuScreen = false;
 
 // Get the web worker to generate the heightmap
 let terrainWidth = c.width * 1;
@@ -49,7 +57,9 @@ let terrainGenerater = new Worker("terrain.js");
 
 terrainGenerater.postMessage(["terrain", terrainWidth, terrainHeight]);
 
-// radarObjects.push(new Missile(200, 200, 100, 100));
+let radar2 = new Worker("radar2.js");
+
+// radarObjects.push(new Missile(200, 200, 100, 100, true));
 
 
 terrainGenerater.onmessage = (msg) => {
@@ -57,6 +67,8 @@ terrainGenerater.onmessage = (msg) => {
   if (msg.data[0] == "heightmap") {
     console.log("Generated");
     heightmap = msg.data[1];
+
+    radar2.postMessage(["terrain", terrainWidth, terrainHeight, heightmap]);
 
     // Create the image data
     let imageData = background.getImageData(0, 0, backgroundC.width, backgroundC.height);
@@ -86,8 +98,10 @@ terrainGenerater.onmessage = (msg) => {
     // Draw the image data onto a blank canvas
     background.putImageData(imageData, 0, 0);
 
-    drawn = true;
-  } else if (msg.data[0] == "radarData") {
+    airBase = new AirBase(heightmap[Math.round(terrainWidth) * 0.95 + Math.round(terrainHeight * 0.95) * terrainWidth] < 0.05);
+
+    menuScreen = true;
+  } else if (msg.data[0] == "radarData" && drawn) {
     if (msg.data[7] == "radarScreen") {
       if (msg.data[3] % (Math.PI * 2) < 0.1) {
         radar.clearRect(0, 0, c.width, c.height);
@@ -115,12 +129,22 @@ terrainGenerater.onmessage = (msg) => {
       }
       terrainGenerater.postMessage(["radar", player.x, player.y, radarRotation, 1000, player.a, radarObjects, "radarScreen"]);
       radarRotation += 0.02;
-    } else {
+    } else if (drawn) {
       // Send any radar data not to be drawn to the screen to the radar object with the id in the name
       for (let i = 0; i < radarObjects.length; i++) {
         if (radarObjects[i].id == msg.data[7]) {
           radarObjects[i].getRadarValue(msg.data[6]);
         }
+      }
+    }
+  }
+}
+
+radar2.onmessage = (msg) => {
+  if (drawn) {
+    for (let i = 0; i < radarObjects.length; i++) {
+      if (radarObjects[i].id == msg.data[7]) {
+        radarObjects[i].getRadarValue(msg.data[6]);
       }
     }
   }
@@ -143,8 +167,18 @@ function drawLoop() {
     // Draw the visible area of the hidden canvas
     draw.drawImage(backgroundC, camera.x, camera.y, c.width, c.height, 0, 0, c.width, c.height);
 
+    // Draw the particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+      if (particles[i].show()) {
+        particles.splice(i, 1);
+      }
+    }
+
     // Draw and calculate the player
     player.show();
+
+    // Draw the air base
+    airBase.show();
 
     // Draw a black circle in the corner
     draw.fillStyle = "#000";
@@ -159,14 +193,70 @@ function drawLoop() {
     draw.arc(42, 42, 24, 0, (Math.PI * 2) * ((performance.now() - player.chaffTime) / 30000));
     draw.stroke();
 
+    // Draw chaff icon
+    draw.save();
+    draw.translate(18, 18);
+    draw.rotate(this.r + Math.PI / 2);
+    draw.drawImage(assets.chaff, 0, 0, 48, 48);
+    draw.restore();
+
+
+    // Same thing for missiles
+    draw.fillStyle = "#000";
+    draw.beginPath();
+    draw.arc((54) * 2, 42, 24, 0, Math.PI * 2);
+    draw.fill();
+
+    draw.lineWidth = 4;
+    draw.strokeStyle = "#f00";
+    draw.beginPath();
+    draw.arc((54) * 2, 42, 24, 0, (Math.PI * 2) * ((performance.now() - player.missileTime) / 5000));
+    draw.stroke();
+
+    draw.save();
+    draw.translate((54) * 2 - 24, 18);
+    draw.rotate(this.r + Math.PI / 2);
+    draw.drawImage(assets.missileIcon, 0, 0, 48, 48);
+    draw.restore();
+
+
+    // Same thing for health
+    draw.fillStyle = "#000";
+    draw.beginPath();
+    draw.arc((58) * 3, 42, 24, 0, Math.PI * 2);
+    draw.fill();
+
+    draw.lineWidth = 4;
+    draw.strokeStyle = "#f00";
+    draw.beginPath();
+    draw.arc((58) * 3, 42, 24, 0, (Math.PI * 2) * (player.health / 100));
+    draw.stroke();
+
+    draw.save();
+    draw.translate((58) * 3 - 24, 18);
+    draw.rotate(this.r + Math.PI / 2);
+    draw.drawImage(assets.heart, 0, 0, 48, 48);
+    draw.restore();
+
+    // Restart the level limmediately if the player dies
+    if (player.health <= 0) {
+      restart();
+    }
+
     // Draw the current radar to the screen
     radar.putImageData(radarData, 0, 0);
 
+    // Show/delete the radar objects
     for (let i = 0; i < radarObjects.length; i++) {
       if (radarObjects[i].show()) {
         radarObjects.splice(i, 1);
       }
     }
+  } else if (menuScreen) {
+    // Draw the map and write the level number to the menu screen
+    document.getElementById("menu").style = "";
+    document.getElementById("level").innerHTML = `Level ${level}`;
+    draw.drawImage(backgroundC, camera.x, camera.y, c.width, c.height, 0, 0, c.width, c.height);
   } else {
     // loading screen
     let time = Date.now();
@@ -183,12 +273,20 @@ function drawLoop() {
 }
 
 function explode(x, y, power) {
-  let objects = radarObjects.concat([player]);
+  // Add the player and air base to the things that can be damaged
+  let objects = radarObjects.concat([player, airBase]);
   for (let i = objects.length - 1; i >= 0; i--) {
+
+    // Deal damage if close enough and depeding on the distance
     let distance = dist(objects[i].x, objects[i].y, x, y) / terrainWidth;
     if (distance < 0.1) {
-      objects[i].damage(Math.min((power / 25) / distance, power));
+      objects[i].damage(Math.min((power / 50) / distance, power));
     }
+  }
+
+  // Explosion particles
+  for (let i = 100; i > 0; i--) {
+    particles.push(new Particle(x, y, Math.random() * Math.PI * 2, Math.random() * power / 25, 4, `hsl(${Math.random()*54}, 100%, 50%)`, 1000 * Math.random() + 1000));
   }
 }
 
@@ -205,12 +303,55 @@ window.onresize = () => {
   radarPixels = radarData.data;
 }
 
+function restart() {
+  // Reset the radar objects, particles, and player
+  radarObjects.splice(0, radarObjects.length);
+  particles.splice(0, radarObjects.length);
+  player = new Player(100, 100, 0.2);
+}
+
+function start() {
+  // Remove the menu
+  menu = false;
+  document.getElementById("menu").style = "opacity: 0";
+  setTimeout(() => {
+    document.getElementById("menu").style = "display: none";
+
+    // Let the code go into the regular draw loop
+    drawn = true;
+    menuScreen = false;
+
+    // Ask for radar data
+    terrainGenerater.postMessage(["radar", player.x, player.y, radarRotation, 1000, player.a, radarObjects, "radarScreen"]);
+    radarRotation += 0.04;
+  }, 200);
+}
+
+let radarRotation = 0;
+
 function map(v, min1, max1, min2, max2) {
   return ((v - min1) / (max1 - min1)) * (max2 - min2) + min2;
 }
 
-let radarRotation = 0;
-terrainGenerater.postMessage(["radar", player.x, player.y, radarRotation, 1000, player.a, radarObjects, "radarScreen"]);
-radarRotation += 0.04;
+radarC.addEventListener("mousedown", (e) => {
+  // Dispense a missle when you click
+  if (player.missileTime + 5000 < performance.now()) {
+    switch (event.which) {
+      case 1:
+        // Make it not radar track if left click
+        radarObjects.push(new Missile(player.x, player.y, e.clientX + camera.x, e.clientY + camera.y, false, true));
+        break;
+      case 3:
+        // Make it radar track if right click
+        radarObjects.push(new Missile(player.x, player.y, e.clientX + camera.x, e.clientY + camera.y, true, true));
+        break;
+    }
+
+    player.missileTime = performance.now();
+  }
+})
+
+// Prevent right click from opening up menu
+radarC.addEventListener("contextmenu", event => event.preventDefault());
 
 drawLoop();

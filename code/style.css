@@ -1,0 +1,49 @@
+* {
+  transition-duration: 0.2s;
+  font-family: 'patua one', sans-serif;
+}
+
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+#menu {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+button {
+  background-color: transparent;
+  border: 2px solid white;
+  color: white;
+  font-size: 5vw;
+  padding: 2vw;
+  border-radius: 0.5vw;
+}
+
+.bigText {
+  font-size: 5vw;
+  margin: 0;
+}
+
+p {
+  font-size: 2vw;
+  margin-top: 0;
+}
+
+button:hover {
+  background-color: rgba(255, 0, 0, 0.2);
+}

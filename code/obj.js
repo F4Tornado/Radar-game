@@ -1,8 +1,16 @@
 const assets = {
-  player: new Image()
+  player: new Image(),
+  chaff: new Image(),
+  missileIcon: new Image(),
+  missile: new Image(),
+  heart: new Image()
 }
 
 assets.player.src = "player.svg";
+assets.chaff.src = "chaff.svg";
+assets.missileIcon.src = "missile.svg";
+assets.missile.src = "MissileObject.svg";
+assets.heart.src = "heart.svg";
 
 Number.prototype.mod = function (n) {
   return ((this % n) + n) % n;
@@ -40,6 +48,7 @@ class Player extends RadarObject {
     this.r = 0;
 
     this.chaffTime = 0;
+    this.missileTime = 0;
 
     this.acceleration = 1;
   }
@@ -60,7 +69,7 @@ class Player extends RadarObject {
     }
 
     // Dispense 4 chaff if space is pressed and the timer runs out
-    if (keys[" "] && this.chaffTime < performance.now() - 30000) {
+    if (keys.e && this.chaffTime < performance.now() - 30000) {
       for (let i = 3; i >= 0; i--) {
         radarObjects.push(new Chaff(this.x + Math.random() * terrainWidth / 50, this.y + Math.random() * terrainHeight / 50));
       }
@@ -78,9 +87,6 @@ class Player extends RadarObject {
     draw.drawImage(assets.player, -c.width / 64, -c.width / 64, c.width / 32, c.width / 32);
     draw.restore();
 
-    // Spawn radar beams
-    // for (let i = 0; i < 2; i++) {
-    // }
     // Draw the line that shows where the radar is drawing
     draw.strokeStyle = `rgba(0, 255, 0, 0.5)`;
     draw.lineWidth = 2;
@@ -122,10 +128,10 @@ class Enemy extends RadarObject {
     let x = Math.cos(this.r);
     let y = Math.sin(this.r);
 
-    // let point1 = [x * 32 + this.x - camera.x, y * 32 + this.y - camera.y];
-    // let point2 = [Math.cos(this.r + Math.PI) * 32 + this.x - camera.x, Math.sin(this.r + Math.PI) * 32 + this.y - camera.y];
+    let point1 = [x * 32 + this.x - camera.x, y * 32 + this.y - camera.y];
+    let point2 = [Math.cos(this.r + Math.PI) * 32 + this.x - camera.x, Math.sin(this.r + Math.PI) * 32 + this.y - camera.y];
 
-    this.r = this.r.mod(Math.PI * 2)
+    this.r = this.r.mod(Math.PI * 2);
 
     this.angleToTurn;
 
@@ -142,12 +148,6 @@ class Enemy extends RadarObject {
       this.angleToTurn = Math.random() * Math.PI * 2;
       this.randomDirection = true;
     }
-
-    // if (this.r > this.angleToTurn.mod(Math.PI * 2) && this.r - Math.PI * 2 > this.angleToTurn.mod(Math.PI * 2)) {
-    //   this.r -= 0.05;
-    // } else {
-    //   this.r += 0.05;
-    // }
 
     // Make the r turn towards the angleToTurn
 
@@ -177,12 +177,12 @@ class Enemy extends RadarObject {
 
     // Draw the enemy
 
-    // draw.strokeStyle = "#000";
-    // draw.lineWidth = 4;
-    // draw.beginPath();
-    // draw.moveTo(point1[0], point1[1]);
-    // draw.lineTo(point2[0], point2[1]);
-    // draw.stroke();
+    draw.strokeStyle = "#000";
+    draw.lineWidth = 4;
+    draw.beginPath();
+    draw.moveTo(point1[0], point1[1]);
+    draw.lineTo(point2[0], point2[1]);
+    draw.stroke();
 
     // Add the acceleration to the velocity
     this.vx += x * this.acceleration;
@@ -203,22 +203,24 @@ class Enemy extends RadarObject {
 }
 
 class Missile extends RadarObject {
-  constructor(x, y, tx, ty) {
+  constructor(x, y, tx, ty, radarTracking, playerVisible) {
     super(x, y, 0.5, 10);
     this.tx = tx;
     this.ty = ty;
     this.r = Math.atan2(y - ty, x - tx) + Math.PI;
     this.angleToTurn = this.r;
     this.radarDatas = [];
+    this.playerVisible = playerVisible;
 
     let boxx = this.tx - terrainWidth / 25;
     let boxy = this.ty - terrainHeight / 25;
     let boxw = terrainWidth / 12.5;
     let boxh = terrainHeight / 12.5;
 
-
-    for (let i = 0; i < 3; i++) {
-      terrainGenerater.postMessage(["radar", this.x, this.y, this.r - (i - 1) / 5, 1000, 0.2, radarObjects.concat([player]), this.id, boxx, boxy, boxw, boxh]);
+    if (radarTracking) {
+      for (let i = 0; i < 3; i++) {
+        radar2.postMessage(["radar", this.x, this.y, this.r - (i - 1) / 10, 1000, 0.2, radarObjects.concat([player]), this.id, boxx, boxy, boxw, boxh]);
+      }
     }
   }
 
@@ -242,23 +244,30 @@ class Missile extends RadarObject {
     }
 
     // Move
-    this.x += x * 5;
-    this.y += y * 5;
+    this.x += x * (terrainWidth / 400);
+    this.y += y * (terrainWidth / 400);
 
-    // Temporary drawing code
-    let point1 = [x * 32 + this.x - camera.x, y * 32 + this.y - camera.y];
-    let point2 = [Math.cos(this.r + Math.PI) * 32 + this.x - camera.x, Math.sin(this.r + Math.PI) * 32 + this.y - camera.y];
+    // Drawing code
+    if (this.playerVisible) {
+      // Draw the missile
+      draw.save();
+      draw.translate(this.x - camera.x, this.y - camera.y);
+      draw.rotate(this.r + Math.PI / 2);
+      draw.drawImage(assets.missile, -c.width / 64 * 1.6, -c.width / 64 * 1.6, c.width / 32 * 1.6, c.width / 32 * 1.6);
+      draw.restore();
 
-    draw.strokeStyle = "#000";
-    draw.lineWidth = 4;
-    draw.beginPath();
-    draw.moveTo(point1[0], point1[1]);
-    draw.lineTo(point2[0], point2[1]);
-    draw.stroke();
+      draw.beginPath();
+      draw.arc(this.tx - camera.x, this.ty - camera.y, 4, 0, Math.PI * 2);
+      draw.fill();
+
+      // for (let i = 2; i >= 1; i--) {
+      particles.push(new Particle(Math.cos(this.r + Math.PI) * 32 + this.x, Math.sin(this.r + Math.PI) * 32 + this.y, this.r + (Math.random() - 0.5) / 2 + Math.PI, (terrainWidth / (400 - Math.random() * 100)), 4, `hsl(${Math.random()*54}, 100%, 50%)`, 5000 + Math.random() * 10000));
+      // }
+    }
 
     // Explode if close to the target
-    if (dist(this.x, this.y, this.tx, this.ty) < terrainWidth / 300) {
-      explode(this.x, this.y, 200);
+    if (dist(this.x, this.y, this.tx, this.ty) < terrainWidth / 100) {
+      explode(this.x, this.y, 100);
       return "remove";
     }
 
@@ -277,11 +286,9 @@ class Missile extends RadarObject {
     let boxy = this.ty - terrainHeight / 25;
     let boxw = terrainWidth / 12.5;
     let boxh = terrainHeight / 12.5;
-    for (let i = 0; i < datas.length; i++) {
-      if (datas[i][1] > boxx && datas[i][1] < boxx + boxw && datas[i][2] > boxy && datas[i][2] < boxy + boxh) {
-        if (datas[i][0] > maxValue[0]) {
-          maxValue = datas[i];
-        }
+    for (let i = datas.length - 1; i >= 0; i--) {
+      if (datas[i][0] > maxValue[0]) {
+        maxValue = datas[i];
       }
     }
 
@@ -298,9 +305,11 @@ class Missile extends RadarObject {
     this.radarDatas = [];
 
     // Request more radar data
-    for (let i = 0; i < 3; i++) {
-      terrainGenerater.postMessage(["radar", this.x, this.y, this.r - (i - 1) / 5, 1000, 0.2, radarObjects.concat([player]), this.id, boxx, boxy, boxw, boxh]);
-    }
+    setTimeout(() => {
+      for (let i = 0; i < 3; i++) {
+        radar2.postMessage(["radar", this.x, this.y, this.r - (i - 1) / 10, 1000, 0.2, radarObjects.concat([player]), this.id, boxx, boxy, boxw, boxh]);
+      }
+    }, 100);
   }
 
   // When the missile gets radar data back, add it to the list and call the above funtion if the list is 3 long
@@ -327,11 +336,124 @@ class Chaff extends RadarObject {
   }
 }
 
+class Bullet extends RadarObject {
+  constructor(x, y, r, playerVisible) {
+    super(x, y, 0.2);
+    this.vx = Math.cos(r) * (terrainWidth / 200);
+    this.vy = Math.sin(r) * (terrainWidth / 200);
+    this.frames = 2 * 60;
+    this.playerVisible = playerVisible;
+
+    for (let i = 3; i > 0; i--) {
+      particles.push(new Particle(player.x, player.y, player.r + (Math.random() - 0.5) / 2, terrainWidth / 400, 2, "#111", 500))
+    }
+  }
+
+  show() {
+    // Draw the bullet if it was shot by the player or if it's close to the player
+    if (this.playerVisible || dist(this.x, this.y, player.x, player.y) < terrainWidth / 8) {
+      draw.beginPath();
+      draw.arc(this.x - camera.x, this.y - camera.y, 2, 0, Math.PI * 2);
+      draw.fill();
+    }
+
+    // Check for collisions
+    for (let i = radarObjects.length - 1; i >= 0; i--) {
+      if (this.id !== radarObjects[i].id && dist(this.x, this.y, radarObjects[i].x, radarObjects[i].y) < terrainWidth / 200) {
+        radarObjects[i].damage(5);
+        this.toRemove = true;
+      }
+    }
+
+    this.x += this.vx;
+    this.y += this.vy;
+    if (this.frames == 0 || this.toRemove) {
+      return "remove";
+    }
+
+    this.frames--;
+  }
+}
+
+class AirBase {
+  constructor(ocean) {
+    this.x = terrainWidth * 0.95;
+    this.y = terrainHeight * 0.95;
+    this.health = 500;
+    this.ocean = ocean;
+  }
+
+  show() {
+    // draw differently if in ocean or land
+    if (this.ocean) {
+      draw.fillStyle = `#ff0000`;
+    } else {
+      draw.fillStyle = `#0000ff`;
+    }
+    draw.beginPath();
+    draw.arc(this.x - camera.x, this.y - camera.y, 8, 0, Math.PI * 2);
+    draw.fill();
+  }
+
+  damage(v) {
+    this.health -= v;
+
+    if (this.health <= 0) {
+      // Increment level, regenerate terrain, clear radar, reset variables
+      level++;
+      drawn = false;
+      terrainGenerater.postMessage(["terrain", terrainWidth, terrainHeight]);
+      radar.clearRect(0, 0, c.width, c.height);
+      radar.fillStyle = "rgba(0, 0, 0, 0.5)";
+      radar.fillRect(0, 0, c.width, c.height);
+      restart();
+    }
+  }
+}
+
+class Particle {
+  constructor(x, y, r, v, size, color, time) {
+    this.x = x;
+    this.y = y;
+    this.vx = Math.cos(r) * v;
+    this.vy = Math.sin(r) * v;
+    this.size = size;
+    this.color = color;
+    this.time = time;
+
+    this.startTime = performance.now();
+  }
+
+  show() {
+    // Draw the particle
+    draw.fillStyle = this.color;
+    draw.beginPath();
+    draw.arc(this.x - camera.x, this.y - camera.y, this.size, 0, Math.PI * 2);
+    draw.fill();
+
+    // Change position and velocity
+    this.x += this.vx;
+    this.y += this.vy;
+
+    this.vx *= 0.96;
+    this.vy *= 0.96;
+
+    // Remove after some time
+    if (this.startTime + this.time < performance.now()) {
+      return "remove";
+    }
+  }
+}
+
 // Listen for which keys are pressed and stick them in an object
 const keys = {};
 window.addEventListener("keydown",
   function (e) {
     keys[e.key] = true;
+
+    if (e.key == " ") {
+      radarObjects.push(new Bullet(player.x, player.y, player.r, true));
+    }
   },
   false);
 

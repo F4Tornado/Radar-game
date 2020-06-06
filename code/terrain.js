@@ -8,10 +8,12 @@ const hillsMap = [];
 const heightmap = [];
 
 onmessage = (msg) => {
-  // console.log(msg.data);
   if (msg.data[0] == "terrain") {
     width = msg.data[1];
     height = msg.data[2];
+
+    // Delete the old data
+    heightmap.splice(0, heightmap.length);
 
     // Start the generation when given the width & height
     generateTerrain();
@@ -83,17 +85,23 @@ function radarRay(originalX, originalY, r, maxDist, altitude, radarObjects, id, 
     }
 
     // For speed, have an option to only draw the points in a box
+
+    let inBox = true;
     if (!ifCheckingBox || (x > boxx && y > boxy && x < boxx + boxw && y < boxy + boxh)) {
-      for (let i = 0; i < radarObjects.length; i++) {
+      for (let i = radarObjects.length - 1; i >= 0; i--) {
         let distance = dist(radarObjects[i].x, radarObjects[i].y, x, y);
-        if (radarObjects[i] !== id && distance < width / 40) {
+        if (radarObjects[i].id !== id && distance < width / 40) {
           // Add to the radar value for every radar object so that it's proportional to the distance and power left
           radar += power * Math.min((radarObjects[i].radarCrossSection / 10) / (distance / 5), 0.1);
         }
       }
+    } else {
+      inBox = false;
     }
 
-    data.push([radar, x, y]);
+    if (inBox) {
+      data.push([radar, x, y]);
+    }
 
     // Step the radar beam along
     x += cosr * 3;
