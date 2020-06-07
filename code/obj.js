@@ -3,7 +3,9 @@ const assets = {
   chaff: new Image(),
   missileIcon: new Image(),
   missile: new Image(),
-  heart: new Image()
+  heart: new Image(),
+  aircraftCarrier: new Image(),
+  airBase: new Image()
 }
 
 assets.player.src = "player.svg";
@@ -11,6 +13,8 @@ assets.chaff.src = "chaff.svg";
 assets.missileIcon.src = "missile.svg";
 assets.missile.src = "MissileObject.svg";
 assets.heart.src = "heart.svg";
+assets.aircraftCarrier.src = "aircraft carrier.svg";
+assets.airBase.src = "air base.svg";
 
 Number.prototype.mod = function (n) {
   return ((this % n) + n) % n;
@@ -86,6 +90,12 @@ class Player extends RadarObject {
     draw.rotate(this.r + Math.PI / 2);
     draw.drawImage(assets.player, -c.width / 64, -c.width / 64, c.width / 32, c.width / 32);
     draw.restore();
+
+    // Draw the distance missiles can go
+    draw.strokeStyle = `rgba(0, 0, 0, 0.2)`;
+    draw.beginPath();
+    draw.arc(this.x - camera.x, this.y - camera.y, 150 * (terrainWidth / 400), 0, Math.PI * 2);
+    draw.stroke();
 
     // Draw the line that shows where the radar is drawing
     draw.strokeStyle = `rgba(0, 255, 0, 0.5)`;
@@ -211,6 +221,7 @@ class Missile extends RadarObject {
     this.angleToTurn = this.r;
     this.radarDatas = [];
     this.playerVisible = playerVisible;
+    this.frames = 150;
 
     let boxx = this.tx - terrainWidth / 25;
     let boxy = this.ty - terrainHeight / 25;
@@ -256,20 +267,30 @@ class Missile extends RadarObject {
       draw.drawImage(assets.missile, -c.width / 64 * 1.6, -c.width / 64 * 1.6, c.width / 32 * 1.6, c.width / 32 * 1.6);
       draw.restore();
 
+      // Draw the target position
       draw.beginPath();
       draw.arc(this.tx - camera.x, this.ty - camera.y, 4, 0, Math.PI * 2);
       draw.fill();
+
+      // Draw the distance this missile can go
+      draw.strokeStyle = `rgba(0, 0, 0, 0.2)`;
+      draw.beginPath();
+      draw.arc(this.x - camera.x, this.y - camera.y, this.frames * (terrainWidth / 400), 0, Math.PI * 2);
+      draw.stroke();
 
       // for (let i = 2; i >= 1; i--) {
       particles.push(new Particle(Math.cos(this.r + Math.PI) * 32 + this.x, Math.sin(this.r + Math.PI) * 32 + this.y, this.r + (Math.random() - 0.5) / 2 + Math.PI, (terrainWidth / (400 - Math.random() * 100)), 4, `hsl(${Math.random()*54}, 100%, 50%)`, 5000 + Math.random() * 10000));
       // }
     }
 
-    // Explode if close to the target
-    if (dist(this.x, this.y, this.tx, this.ty) < terrainWidth / 100) {
+    // Explode if close to the target or if the frames left is 0
+    if (dist(this.x, this.y, this.tx, this.ty) < terrainWidth / 100 || this.frames <= 0) {
       explode(this.x, this.y, 100);
       return "remove";
     }
+
+    // Decrease the maximum amount of frames
+    this.frames--;
 
     if (this.toRemove) {
       return "remove";
@@ -386,13 +407,18 @@ class AirBase {
   show() {
     // draw differently if in ocean or land
     if (this.ocean) {
-      draw.fillStyle = `#ff0000`;
+      draw.save();
+      draw.translate(this.x - camera.x, this.y - camera.y);
+      draw.rotate(this.r + Math.PI / 2);
+      draw.drawImage(assets.aircraftCarrier, -c.width / 64 * 1.6, -c.width / 64 * 1.6, c.width / 32 * 1.6, c.width / 32 * 1.6);
+      draw.restore();
     } else {
-      draw.fillStyle = `#0000ff`;
+      draw.save();
+      draw.translate(this.x - camera.x, this.y - camera.y);
+      draw.rotate(this.r + Math.PI / 2);
+      draw.drawImage(assets.airBase, -c.width / 64 * 1.6, -c.width / 64 * 1.6, c.width / 32 * 1.6, c.width / 32 * 1.6);
+      draw.restore();
     }
-    draw.beginPath();
-    draw.arc(this.x - camera.x, this.y - camera.y, 8, 0, Math.PI * 2);
-    draw.fill();
   }
 
   damage(v) {
@@ -402,7 +428,7 @@ class AirBase {
       // Increment level, regenerate terrain, clear radar, reset variables
       level++;
       drawn = false;
-      terrainGenerater.postMessage(["terrain", terrainWidth, terrainHeight]);
+      terrainGenerater.postMessage(["terrain", terrainWidth, terrainHeight, level]);
       radar.clearRect(0, 0, c.width, c.height);
       radar.fillStyle = "rgba(0, 0, 0, 0.5)";
       radar.fillRect(0, 0, c.width, c.height);

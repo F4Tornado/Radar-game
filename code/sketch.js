@@ -39,10 +39,6 @@ let menuScreen = false;
 let terrainWidth = c.width * 1;
 let terrainHeight = c.width * 1;
 
-for (let i = 0; i < 10; i++) {
-  radarObjects.push(new Enemy(Math.random() * terrainWidth, Math.random() * terrainHeight, Math.random() * Math.PI * 2))
-}
-
 backgroundC.width = terrainWidth;
 backgroundC.height = terrainHeight;
 
@@ -55,7 +51,7 @@ let heightmap;
 
 let terrainGenerater = new Worker("terrain.js");
 
-terrainGenerater.postMessage(["terrain", terrainWidth, terrainHeight]);
+terrainGenerater.postMessage(["terrain", terrainWidth, terrainHeight, level]);
 
 let radar2 = new Worker("radar2.js");
 
@@ -86,7 +82,7 @@ terrainGenerater.onmessage = (msg) => {
         pixels[i] = 255;
         pixels[i + 1] = 255;
         pixels[i + 2] = 128;
-      } else if (brightness < 1) { // Plains & mountains
+      } else if (brightness <= 1) { // Plains & mountains
         pixels[i] = map(brightness, 0.1, 1, 0, 255);
         pixels[i + 1] = map(brightness, 0.1, 1, 128, 255);
         pixels[i + 2] = map(brightness, 0.1, 1, 0, 255);
@@ -98,7 +94,7 @@ terrainGenerater.onmessage = (msg) => {
     // Draw the image data onto a blank canvas
     background.putImageData(imageData, 0, 0);
 
-    airBase = new AirBase(heightmap[Math.round(terrainWidth) * 0.95 + Math.round(terrainHeight * 0.95) * terrainWidth] < 0.05);
+    airBase = new AirBase(heightmap[Math.round(terrainWidth * 0.95) + Math.round(terrainHeight * 0.95) * terrainWidth] < 0.05);
 
     menuScreen = true;
   } else if (msg.data[0] == "radarData" && drawn) {

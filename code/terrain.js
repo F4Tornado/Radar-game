@@ -2,6 +2,7 @@ self.importScripts("noise.js");
 
 let width;
 let height;
+let level;
 
 const hillsMap = [];
 
@@ -11,6 +12,7 @@ onmessage = (msg) => {
   if (msg.data[0] == "terrain") {
     width = msg.data[1];
     height = msg.data[2];
+    level = msg.data[3];
 
     // Delete the old data
     heightmap.splice(0, heightmap.length);
@@ -43,7 +45,7 @@ function generateTerrain() {
   // Use perlin noise to generate each pixel, and generate a heightmap
   for (let i = 0; i < width; i++) {
     for (let j = 0; j < height; j++) {
-      let biomeValue = 256 - (Math.abs(noise.perlin2((j / width) * 5, (i / height) * 5)) * 256)
+      let biomeValue = Math.min(((1 - Math.abs(noise.perlin2((j / width) * 5, (i / height) * 5))) + (level - 7) / 15), 1) * 256;
 
       if (biomeValue < 160) { // Oceans
         heightmap.push(map(biomeValue, 0, 160, 0, 0.05));
@@ -52,7 +54,7 @@ function generateTerrain() {
       } else { // Hills & mountains
         // heightmap.push(map(lerp(map(hillsMap[j * height + i], 0, 1, 0, 1), (1 - Math.abs(noise.simplex2((i / width) * 25, (j / height) * 25))) ** 2, map(biomeValue, 190, 256, 0, 1) ** 2.5), 0, 1, 0.1, map(biomeValue, 190, 256, 0.1, 1) ** 0.7));
 
-        heightmap.push(map(lerp(Math.abs(noise.perlin2(j / width * 100, i / width * 100)) / 4, (1 - Math.abs(noise.simplex2((i / width) * 25, (j / height) * 25))) ** 2, map(biomeValue, 190, 256, 0, 1) ** 2.5), 0, 1, 0.1, map(biomeValue, 190, 256, 0.1, 1) ** 0.7));
+        heightmap.push(Math.min(map(lerp(Math.abs(noise.perlin2(j / width * 100, i / width * 100)) / 4, (1 - Math.abs(noise.simplex2((i / width) * 25, (j / height) * 25))) ** 2 * (level / 10), map(biomeValue, 190, 256, 0, 1) ** 2.5), 0, 1, 0.1, map(biomeValue, 190, 256, 0.1, 1) ** 0.7), 1));
       }
     }
   }
