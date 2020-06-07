@@ -10,7 +10,7 @@ const assets = {
 
 assets.player.src = "player.svg";
 assets.chaff.src = "chaff.svg";
-assets.missileIcon.src = "missile.svg";
+assets.missileIcon.src = "Missile.svg";
 assets.missile.src = "MissileObject.svg";
 assets.heart.src = "heart.svg";
 assets.aircraftCarrier.src = "aircraft carrier.svg";
