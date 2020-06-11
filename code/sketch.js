@@ -34,6 +34,9 @@ let player = new Player(100, 100, 0.2);
 let airBase;
 
 let menuScreen = false;
+let menu = false;
+
+let bumperPressed = false;
 
 // Get the web worker to generate the heightmap
 let terrainWidth = c.width * 1;
@@ -45,6 +48,11 @@ backgroundC.height = terrainHeight;
 const camera = {
   x: 0,
   y: 0,
+}
+
+const gamepadMouse = {
+  x: 100,
+  y: 100,
 }
 
 let heightmap;
@@ -97,9 +105,10 @@ terrainGenerater.onmessage = (msg) => {
     airBase = new AirBase(heightmap[Math.round(terrainWidth * 0.95) + Math.round(terrainHeight * 0.95) * terrainWidth] < 0.05);
 
     menuScreen = true;
+    menu = false;
   } else if (msg.data[0] == "radarData" && drawn) {
     if (msg.data[7] == "radarScreen") {
-      if (msg.data[3] % (Math.PI * 2) < 0.1) {
+      if (msg.data[3] % (π * 2) < 0.1) {
         radar.clearRect(0, 0, c.width, c.height);
         radar.fillStyle = "rgba(0, 0, 0, 0.5)";
         radar.fillRect(0, 0, c.width, c.height);
@@ -124,12 +133,12 @@ terrainGenerater.onmessage = (msg) => {
         }
       }
       terrainGenerater.postMessage(["radar", player.x, player.y, radarRotation, 1000, player.a, radarObjects, "radarScreen"]);
-      radarRotation += 0.02;
+      radarRotation += 0.03;
     } else if (drawn) {
       // Send any radar data not to be drawn to the screen to the radar object with the id in the name
       for (let i = 0; i < radarObjects.length; i++) {
         if (radarObjects[i].id == msg.data[7]) {
-          radarObjects[i].getRadarValue(msg.data[6]);
+          radarObjects[i].getRadarValue(msg.data[6], msg.data[8]);
         }
       }
     }
@@ -140,7 +149,7 @@ radar2.onmessage = (msg) => {
   if (drawn) {
     for (let i = 0; i < radarObjects.length; i++) {
       if (radarObjects[i].id == msg.data[7]) {
-        radarObjects[i].getRadarValue(msg.data[6]);
+        radarObjects[i].getRadarValue(msg.data[6], msg.data[8]);
       }
     }
   }
@@ -179,20 +188,20 @@ function drawLoop() {
     // Draw a black circle in the corner
     draw.fillStyle = "#000";
     draw.beginPath();
-    draw.arc(42, 42, 24, 0, Math.PI * 2);
+    draw.arc(42, 42, 24, 0, π * 2);
     draw.fill();
 
     // Draw an arc around the circle representing how long until you can dispense more chaff
     draw.lineWidth = 4;
     draw.strokeStyle = "#f00";
     draw.beginPath();
-    draw.arc(42, 42, 24, 0, (Math.PI * 2) * ((performance.now() - player.chaffTime) / 30000));
+    draw.arc(42, 42, 24, 0, (π * 2) * ((performance.now() - player.chaffTime) / 30000));
     draw.stroke();
 
     // Draw chaff icon
     draw.save();
     draw.translate(18, 18);
-    draw.rotate(this.r + Math.PI / 2);
+    draw.rotate(this.r + π / 2);
     draw.drawImage(assets.chaff, 0, 0, 48, 48);
     draw.restore();
 
@@ -200,18 +209,18 @@ function drawLoop() {
     // Same thing for missiles
     draw.fillStyle = "#000";
     draw.beginPath();
-    draw.arc((54) * 2, 42, 24, 0, Math.PI * 2);
+    draw.arc((54) * 2, 42, 24, 0, π * 2);
     draw.fill();
 
     draw.lineWidth = 4;
     draw.strokeStyle = "#f00";
     draw.beginPath();
-    draw.arc((54) * 2, 42, 24, 0, (Math.PI * 2) * ((performance.now() - player.missileTime) / 5000));
+    draw.arc((54) * 2, 42, 24, 0, (π * 2) * ((performance.now() - player.missileTime) / 5000));
     draw.stroke();
 
     draw.save();
     draw.translate((54) * 2 - 24, 18);
-    draw.rotate(this.r + Math.PI / 2);
+    draw.rotate(this.r + π / 2);
     draw.drawImage(assets.missileIcon, 0, 0, 48, 48);
     draw.restore();
 
@@ -219,18 +228,18 @@ function drawLoop() {
     // Same thing for health
     draw.fillStyle = "#000";
     draw.beginPath();
-    draw.arc((58) * 3, 42, 24, 0, Math.PI * 2);
+    draw.arc((58) * 3, 42, 24, 0, π * 2);
     draw.fill();
 
     draw.lineWidth = 4;
     draw.strokeStyle = "#f00";
     draw.beginPath();
-    draw.arc((58) * 3, 42, 24, 0, (Math.PI * 2) * (player.health / 100));
+    draw.arc((58) * 3, 42, 24, 0, (π * 2) * (player.health / 100));
     draw.stroke();
 
     draw.save();
     draw.translate((58) * 3 - 24, 18);
-    draw.rotate(this.r + Math.PI / 2);
+    draw.rotate(this.r + π / 2);
     draw.drawImage(assets.heart, 0, 0, 48, 48);
     draw.restore();
 
@@ -248,11 +257,26 @@ function drawLoop() {
         radarObjects.splice(i, 1);
       }
     }
+
+    // Draw gamepadMouse if there is a gamepad
+    if (gamepad) {
+      draw.fillStyle = "white";
+      draw.beginPath();
+      draw.arc(gamepadMouse.x - camera.x, gamepadMouse.y - camera.y, 4, 0, π * 2);
+      draw.fill();
+    }
   } else if (menuScreen) {
     // Draw the map and write the level number to the menu screen
     document.getElementById("menu").style = "";
     document.getElementById("level").innerHTML = `Level ${level}`;
     draw.drawImage(backgroundC, camera.x, camera.y, c.width, c.height, 0, 0, c.width, c.height);
+
+    if (gamepad) {
+      if (!bumperPressed && gamepad.buttons[5].pressed) {
+        start();
+      }
+      bumperPressed = gamepad.buttons[5].pressed;
+    }
   } else {
     // loading screen
     let time = Date.now();
@@ -260,7 +284,7 @@ function drawLoop() {
       draw.strokeStyle = `hsl(${map(i, 0, 10, 0, 360)}, 100%, 50%)`;
       draw.lineWidth = 16;
       draw.beginPath();
-      draw.arc(c.width / 2, c.height / 2, 64 + i * 24, (time / (100 * (i + 1))) % (Math.PI * 2), (time / (100 * (i + 1)) + Math.PI / 2) % (Math.PI * 2));
+      draw.arc(c.width / 2, c.height / 2, 64 + i * 24, (time / (100 * (i + 1))) % (π * 2), (time / (100 * (i + 1)) + π / 2) % (π * 2));
       draw.stroke();
     }
   }
@@ -282,7 +306,7 @@ function explode(x, y, power) {
 
   // Explosion particles
   for (let i = 100; i > 0; i--) {
-    particles.push(new Particle(x, y, Math.random() * Math.PI * 2, Math.random() * power / 25, 4, `hsl(${Math.random()*54}, 100%, 50%)`, 1000 * Math.random() + 1000));
+    particles.push(new Particle(x, y, Math.random() * π * 2, Math.random() * power / 25, 4, `hsl(${Math.random()*54}, 100%, 50%)`, 1000 * Math.random() + 1000));
   }
 }
 
@@ -316,6 +340,8 @@ function start() {
     // Let the code go into the regular draw loop
     drawn = true;
     menuScreen = false;
+
+    radarObjects.push(new Enemy(500, 500, 0))
 
     // Ask for radar data
     terrainGenerater.postMessage(["radar", player.x, player.y, radarRotation, 1000, player.a, radarObjects, "radarScreen"]);

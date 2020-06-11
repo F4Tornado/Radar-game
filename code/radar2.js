@@ -12,7 +12,7 @@ function dist(x1, y1, x2, y2) {
 
 onmessage = (msg) => {
   if (msg.data[0] == "radar") {
-    self.postMessage(["radarData", msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5], radarRay(msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5], msg.data[6], msg.data[7], msg.data[8], msg.data[9], msg.data[10], msg.data[11]), msg.data[7]]);
+    self.postMessage(["radarData", msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5], radarRay(msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5], msg.data[6], msg.data[7], msg.data[8], msg.data[9], msg.data[10], msg.data[11]), msg.data[7], msg.data[12]]);
   } else if (msg.data[0] == "terrain") {
     width = msg.data[1];
     height = msg.data[2];

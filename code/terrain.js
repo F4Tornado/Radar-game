@@ -83,7 +83,7 @@ function radarRay(originalX, originalY, r, maxDist, altitude, radarObjects, id, 
     if (heightmap[Math.round(y) * height + Math.round(x)] > altitude) {
       radar += map(heightmap[Math.round(y) * width + Math.round(x)], altitude, 1, 0, 0.1);
       // Reduce the power; allows radar signals to be blocked by mountains
-      power -= radar;
+      power -= radar * 2;
     }
 
     // For speed, have an option to only draw the points in a box
@@ -106,8 +106,8 @@ function radarRay(originalX, originalY, r, maxDist, altitude, radarObjects, id, 
     }
 
     // Step the radar beam along
-    x += cosr * 3;
-    y += sinr * 3;
+    x += cosr * 6;
+    y += sinr * 6;
   }
 
   return data;
