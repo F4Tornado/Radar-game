@@ -22,8 +22,12 @@ let radarPixels = radarData.data;
 
 let drawn = false;
 
+let airplanes = 1;
+
 const radarObjects = [];
 let id = 0;
+
+const AA = [];
 
 let level = 1;
 
@@ -104,6 +108,8 @@ terrainGenerater.onmessage = (msg) => {
 
     airBase = new AirBase(heightmap[Math.round(terrainWidth * 0.95) + Math.round(terrainHeight * 0.95) * terrainWidth] < 0.05);
 
+    AA.push(new AntiAir(500, 500, heightmap[500 + 500 * terrainWidth] < 0.05, id));
+
     menuScreen = true;
     menu = false;
   } else if (msg.data[0] == "radarData" && drawn) {
@@ -147,9 +153,18 @@ terrainGenerater.onmessage = (msg) => {
 
 radar2.onmessage = (msg) => {
   if (drawn) {
-    for (let i = 0; i < radarObjects.length; i++) {
-      if (radarObjects[i].id == msg.data[7]) {
-        radarObjects[i].getRadarValue(msg.data[6], msg.data[8]);
+    if (msg.data[8] == "aa") {
+      for (let i = 0; i < AA.length; i++) {
+        if (AA[i].id == msg.data[7]) {
+          AA[i].getRadarValue(msg.data[6], msg.data[8]);
+        }
+      }
+    } else {
+
+      for (let i = 0; i < radarObjects.length; i++) {
+        if (radarObjects[i].id == msg.data[7]) {
+          radarObjects[i].getRadarValue(msg.data[6], msg.data[8]);
+        }
       }
     }
   }
@@ -184,6 +199,12 @@ function drawLoop() {
 
     // Draw the air base
     airBase.show();
+
+    for (let i = AA.length - 1; i >= 0; i--) {
+      if (AA[i].show()) {
+        AA.splice(i, 1);
+      }
+    }
 
     // Draw a black circle in the corner
     draw.fillStyle = "#000";
@@ -294,7 +315,7 @@ function drawLoop() {
 
 function explode(x, y, power) {
   // Add the player and air base to the things that can be damaged
-  let objects = radarObjects.concat([player, airBase]);
+  let objects = radarObjects.concat([player, airBase]).concat(AA);
   for (let i = objects.length - 1; i >= 0; i--) {
 
     // Deal damage if close enough and depeding on the distance
@@ -341,7 +362,7 @@ function start() {
     drawn = true;
     menuScreen = false;
 
-    radarObjects.push(new Enemy(500, 500, 0))
+    airplanes = level;
 
     // Ask for radar data
     terrainGenerater.postMessage(["radar", player.x, player.y, radarRotation, 1000, player.a, radarObjects, "radarScreen"]);

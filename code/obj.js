@@ -6,7 +6,10 @@ const assets = {
   heart: new Image(),
   aircraftCarrier: new Image(),
   airBase: new Image(),
-  enemy: new Image()
+  enemy: new Image(),
+  AAship: new Image(),
+  AAtank: new Image(),
+  AAgun: new Image(),
 }
 
 assets.player.src = "player.svg";
@@ -17,6 +20,9 @@ assets.heart.src = "heart.svg";
 assets.aircraftCarrier.src = "aircraft carrier.svg";
 assets.airBase.src = "air base.svg";
 assets.enemy.src = "enemy.svg";
+assets.AAship.src = "AA ship.svg";
+assets.AAtank.src = "AA tank.svg";
+assets.AAgun.src = "AA gun.svg";
 
 const π = Math.PI;
 
@@ -193,7 +199,7 @@ class Enemy extends RadarObject {
     this.shootMissiles = false;
     this.bulletsShot = 0;
 
-    setInterval(() => {
+    this.interval = setInterval(() => {
       radar2.postMessage(["radar", this.x, this.y, Math.atan2(player.y - this.y, player.x - this.x), 1000, 0.2, radarObjects.concat([player]), this.id, player.x - 10, player.y - 5, 20, 20]);
     }, 200);
   }
@@ -259,6 +265,7 @@ class Enemy extends RadarObject {
     this.vy *= 0.9;
 
     if (this.toRemove) {
+      clearInterval(this.interval);
       return "remove";
     }
   }
@@ -525,15 +532,94 @@ class Bullet extends RadarObject {
   }
 }
 
-class AirBase {
-  constructor(ocean) {
-    this.x = terrainWidth * 0.95;
-    this.y = terrainHeight * 0.95;
-    this.health = 250;
+class AntiAir {
+  constructor(x, y, ocean, id) {
+    this.x = x;
+    this.y = y;
+    this.r = 0;
     this.ocean = ocean;
+    this.id = id;
+    id++;
+
+    this.health = 50;
+
+    this.interval = setInterval(() => {
+      radar2.postMessage(["radar", this.x, this.y, Math.atan2(player.y - this.y, player.x - this.x), 1000, 0.2, radarObjects.concat([player]), this.id, player.x - 10, player.y - 5, 20, 20, "aa"]);
+    }, 200);
   }
 
   show() {
+    try {
+      // If it's the air base, then draw the airbase
+      this.showAirBase();
+    } catch (error) {
+      // Otherwise, draw the AA thing
+      if (this.ocean) {
+        // Ocean AA
+        draw.save();
+        draw.translate(this.x - camera.x, this.y - camera.y);
+        draw.rotate(0);
+        draw.drawImage(assets.AAship, -c.width / 64 * 1.6, -c.width / 64 * 1.6, c.width / 32 * 1.6, c.width / 32 * 1.6);
+        draw.restore();
+      } else {
+        // Land AA
+        draw.save();
+        draw.translate(this.x - camera.x, this.y - camera.y);
+        draw.rotate(0);
+        draw.drawImage(assets.AAtank, -c.width / 64 * 1.6, -c.width / 64 * 1.6, c.width / 32 * 1.6, c.width / 32 * 1.6);
+        draw.restore();
+      }
+      // The gun
+      draw.save();
+      draw.translate(this.x - camera.x, this.y - camera.y);
+      draw.rotate(this.r + π / 2);
+      draw.drawImage(assets.AAgun, -c.width / 64 * 1.6, -c.width / 64 * 1.6, c.width / 32 * 1.6, c.width / 32 * 1.6);
+      draw.restore();
+    }
+
+    if (this.toRemove) {
+      clearInterval(this.interval);
+      return "thingy";
+    }
+  }
+
+  getRadarValue(radarData, name) {
+    // Detect maximum value of radar data send back
+    let max = 0;
+    for (let i = radarData.length - 1; i >= 0; i--) {
+      if (radarData[i][0] > max) {
+        max = radarData[i][0];
+      }
+    }
+
+    // Test if player can be seen
+    if (max > 0.05) {
+      // Point towards play and shoot
+      this.r = Math.atan2(player.y - this.y, player.x - this.x);
+
+      radarObjects.push(new Bullet(this.x + Math.cos(this.r) * (c.width / 42), this.y + Math.sin(this.r) * (c.width / 42), this.r, false));
+    }
+  }
+
+  damage(v) {
+    console.log("damage");
+    this.health -= v;
+    if (this.health <= 0) {
+      this.toRemove = true;
+    }
+  }
+}
+
+class AirBase extends AntiAir {
+  constructor(ocean) {
+    super(terrainWidth * 0.95, terrainHeight * 0.95, ocean);
+    this.health = 250;
+    this.ocean = ocean;
+
+    this.frames = 0;
+  }
+
+  showAirBase() {
     // draw differently if in ocean or land
     if (this.ocean) {
       draw.save();
@@ -548,6 +634,13 @@ class AirBase {
       draw.drawImage(assets.airBase, -c.width / 64 * 1.6, -c.width / 64 * 1.6, c.width / 32 * 1.6, c.width / 32 * 1.6);
       draw.restore();
     }
+
+    if (this.frames % 600 == 0 && airplanes > 0) {
+      radarObjects.push(new Enemy(this.x, this.y, π * 1.125));
+      airplanes--;
+    }
+
+    this.frames++;
   }
 
   damage(v) {
