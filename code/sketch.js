@@ -20,6 +20,8 @@ radar.fillRect(0, 0, c.width, c.height);
 let radarData = radar.getImageData(0, 0, c.width, c.height);
 let radarPixels = radarData.data;
 
+const playerHealth = 200;
+
 let drawn = false;
 
 let airplanes = 1;
@@ -41,6 +43,7 @@ let menuScreen = false;
 let menu = false;
 
 let bumperPressed = false;
+let leftBumperPressed = false;
 
 // Get the web worker to generate the heightmap
 let terrainWidth = c.width * 1;
@@ -108,7 +111,9 @@ terrainGenerater.onmessage = (msg) => {
 
     airBase = new AirBase(heightmap[Math.round(terrainWidth * 0.95) + Math.round(terrainHeight * 0.95) * terrainWidth] < 0.05);
 
-    AA.push(new AntiAir(500, 500, heightmap[500 + 500 * terrainWidth] < 0.05, id));
+    for (let i = level; i > 0; i--) {
+      AA.push(new AntiAir(terrainWidth * Math.random(), terrainHeight * Math.random(), heightmap[500 + 500 * terrainWidth] < 0.05, id));
+    }
 
     menuScreen = true;
     menu = false;
@@ -154,13 +159,13 @@ terrainGenerater.onmessage = (msg) => {
 radar2.onmessage = (msg) => {
   if (drawn) {
     if (msg.data[8] == "aa") {
-      for (let i = 0; i < AA.length; i++) {
-        if (AA[i].id == msg.data[7]) {
-          AA[i].getRadarValue(msg.data[6], msg.data[8]);
+      let lookingFor = AA.concat([airBase]);
+      for (let i = 0; i < lookingFor.length; i++) {
+        if (lookingFor[i].id == msg.data[7]) {
+          lookingFor[i].getRadarValue(msg.data[6], msg.data[8]);
         }
       }
     } else {
-
       for (let i = 0; i < radarObjects.length; i++) {
         if (radarObjects[i].id == msg.data[7]) {
           radarObjects[i].getRadarValue(msg.data[6], msg.data[8]);
@@ -215,6 +220,11 @@ function drawLoop() {
     // Draw an arc around the circle representing how long until you can dispense more chaff
     draw.lineWidth = 4;
     draw.strokeStyle = "#f00";
+
+    if (tutorial && tutorialToShow == "canShootChaffText") {
+      draw.strokeStyle = `hsl(${performance.now()/10}, 100%, 50%)`;
+    }
+
     draw.beginPath();
     draw.arc(42, 42, 24, 0, (π * 2) * ((performance.now() - player.chaffTime) / 30000));
     draw.stroke();
@@ -235,6 +245,11 @@ function drawLoop() {
 
     draw.lineWidth = 4;
     draw.strokeStyle = "#f00";
+
+    if (tutorial && tutorialToShow == "canShootMissileText") {
+      draw.strokeStyle = `hsl(${performance.now()/10}, 100%, 50%)`;
+    }
+
     draw.beginPath();
     draw.arc((54) * 2, 42, 24, 0, (π * 2) * ((performance.now() - player.missileTime) / 5000));
     draw.stroke();
@@ -254,8 +269,13 @@ function drawLoop() {
 
     draw.lineWidth = 4;
     draw.strokeStyle = "#f00";
+
+    if (tutorial && tutorialToShow == "healthBarText") {
+      draw.strokeStyle = `hsl(${performance.now()/10}, 100%, 50%)`;
+    }
+
     draw.beginPath();
-    draw.arc((58) * 3, 42, 24, 0, (π * 2) * (player.health / 100));
+    draw.arc((58) * 3, 42, 24, 0, (π * 2) * (player.health / playerHealth));
     draw.stroke();
 
     draw.save();
@@ -279,6 +299,10 @@ function drawLoop() {
       }
     }
 
+    if (tutorial) {
+      drawTutorial();
+    }
+
     // Draw gamepadMouse if there is a gamepad
     if (gamepad) {
       draw.fillStyle = "white";
@@ -292,11 +316,24 @@ function drawLoop() {
     document.getElementById("level").innerHTML = `Level ${level}`;
     draw.drawImage(backgroundC, camera.x, camera.y, c.width, c.height, 0, 0, c.width, c.height);
 
+    if (level == 1) {
+      document.getElementById("tutorial").hidden = false;
+    } else {
+      document.getElementById("tutorial").hidden = true;
+    }
+
     if (gamepad) {
       if (!bumperPressed && gamepad.buttons[5].pressed) {
         start();
       }
+
+      if (!leftBumperPressed && gamepad.buttons[4].pressed) {
+        tutorial = true;
+        start();
+      }
+
       bumperPressed = gamepad.buttons[5].pressed;
+      leftBumperPressed = gamepad.buttons[4].pressed
     }
   } else {
     // loading screen
@@ -362,6 +399,10 @@ function start() {
     drawn = true;
     menuScreen = false;
 
+    if (tutorial) {
+      tutorialSequence();
+    }
+
     airplanes = level;
 
     // Ask for radar data
@@ -392,7 +433,8 @@ radarC.addEventListener("mousedown", (e) => {
 
     player.missileTime = performance.now();
   }
-})
+});
+
 
 // Prevent right click from opening up menu
 radarC.addEventListener("contextmenu", event => event.preventDefault());

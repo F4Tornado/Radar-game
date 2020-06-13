@@ -32,6 +32,7 @@ button {
   font-size: 5vw;
   padding: 2vw;
   border-radius: 0.5vw;
+  margin: 16px;
 }
 
 .bigText {

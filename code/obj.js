@@ -57,7 +57,7 @@ class RadarObject {
 
 class Player extends RadarObject {
   constructor(x, y, a) {
-    super(x, y, 1, 100);
+    super(x, y, 1, playerHealth);
     this.vx = 0;
     this.vy = 0;
     this.a = a;
@@ -311,7 +311,6 @@ class Enemy extends RadarObject {
         if (this.toAskRadar) {
           for (let i = radarObjects.length - 1; i >= 0 && this.toAskRadar; i--) {
             if (radarObjects[i].isMissile && radarObjects[i].playerVisible) {
-              console.log("radaring");
               this.toAskRadar = false;
               // If a missile if found, find out if it can be seen
               radar2.postMessage(["radar", this.x, this.y, Math.atan2(radarObjects[i].y - this.y, radarObjects[i].x - this.x), 1000, 0.2, radarObjects, this.id, radarObjects[i].x - 10, radarObjects[i].y - 5, 20, 20, "missile"]);
@@ -516,7 +515,7 @@ class Bullet extends RadarObject {
     // Check for collisions
     let toTest = radarObjects.concat([player]);
     for (let i = toTest.length - 1; i >= 0; i--) {
-      if (this.id !== toTest[i].id && dist(this.x, this.y, toTest[i].x, toTest[i].y) < terrainWidth / 200) {
+      if (!toTest[i].isMissile && this.id !== toTest[i].id && dist(this.x, this.y, toTest[i].x, toTest[i].y) < terrainWidth / 200) {
         toTest[i].damage(5);
         this.toRemove = true;
       }
@@ -533,7 +532,7 @@ class Bullet extends RadarObject {
 }
 
 class AntiAir {
-  constructor(x, y, ocean, id) {
+  constructor(x, y, ocean) {
     this.x = x;
     this.y = y;
     this.r = 0;
@@ -544,7 +543,8 @@ class AntiAir {
     this.health = 50;
 
     this.interval = setInterval(() => {
-      radar2.postMessage(["radar", this.x, this.y, Math.atan2(player.y - this.y, player.x - this.x), 1000, 0.2, radarObjects.concat([player]), this.id, player.x - 10, player.y - 5, 20, 20, "aa"]);
+      radar2.postMessage(["radar", this.x, this.y, Math.atan2(player.y - this.y, player.x - this.x), 1000, 0.2, radarObjects.concat([player]), this.id, player.x - 10, player.y - 10, 20, 20, "aa"]);
+      // console.log("askingradar");
     }, 200);
   }
 
@@ -569,13 +569,14 @@ class AntiAir {
         draw.drawImage(assets.AAtank, -c.width / 64 * 1.6, -c.width / 64 * 1.6, c.width / 32 * 1.6, c.width / 32 * 1.6);
         draw.restore();
       }
-      // The gun
-      draw.save();
-      draw.translate(this.x - camera.x, this.y - camera.y);
-      draw.rotate(this.r + π / 2);
-      draw.drawImage(assets.AAgun, -c.width / 64 * 1.6, -c.width / 64 * 1.6, c.width / 32 * 1.6, c.width / 32 * 1.6);
-      draw.restore();
     }
+
+    // The gun
+    draw.save();
+    draw.translate(this.x - camera.x, this.y - camera.y);
+    draw.rotate(this.r + π / 2);
+    draw.drawImage(assets.AAgun, -c.width / 64 * 1.6, -c.width / 64 * 1.6, c.width / 32 * 1.6, c.width / 32 * 1.6);
+    draw.restore();
 
     if (this.toRemove) {
       clearInterval(this.interval);
@@ -592,9 +593,11 @@ class AntiAir {
       }
     }
 
+    console.log("radaring");
+
     // Test if player can be seen
     if (max > 0.05) {
-      // Point towards play and shoot
+      // Point towards player and shoot
       this.r = Math.atan2(player.y - this.y, player.x - this.x);
 
       radarObjects.push(new Bullet(this.x + Math.cos(this.r) * (c.width / 42), this.y + Math.sin(this.r) * (c.width / 42), this.r, false));
@@ -602,10 +605,13 @@ class AntiAir {
   }
 
   damage(v) {
-    console.log("damage");
-    this.health -= v;
-    if (this.health <= 0) {
-      this.toRemove = true;
+    try {
+      this.AirBaseDamage(v);
+    } catch {
+      this.health -= v;
+      if (this.health <= 0) {
+        this.toRemove = true;
+      }
     }
   }
 }
@@ -624,13 +630,13 @@ class AirBase extends AntiAir {
     if (this.ocean) {
       draw.save();
       draw.translate(this.x - camera.x, this.y - camera.y);
-      draw.rotate(this.r + π / 2);
+      // draw.rotate(this.r + π / 2);
       draw.drawImage(assets.aircraftCarrier, -c.width / 64 * 1.6, -c.width / 64 * 1.6, c.width / 32 * 1.6, c.width / 32 * 1.6);
       draw.restore();
     } else {
       draw.save();
       draw.translate(this.x - camera.x, this.y - camera.y);
-      draw.rotate(this.r + π / 2);
+      // draw.rotate(this.r + π / 2);
       draw.drawImage(assets.airBase, -c.width / 64 * 1.6, -c.width / 64 * 1.6, c.width / 32 * 1.6, c.width / 32 * 1.6);
       draw.restore();
     }
@@ -643,7 +649,7 @@ class AirBase extends AntiAir {
     this.frames++;
   }
 
-  damage(v) {
+  AirBaseDamage(v) {
     this.health -= v;
 
     if (this.health <= 0) {
