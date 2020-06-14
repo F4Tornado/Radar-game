@@ -54,6 +54,8 @@ function tutorialSequence() {
 
                       setTimeout(() => {
                         tutorialToShow = "";
+
+                        tutorial = false;
                       }, timeBetweenText);
 
                     }, timeBetweenText);
